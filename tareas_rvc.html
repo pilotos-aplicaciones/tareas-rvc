@@ -743,6 +743,7 @@ async function loadFromFirestore(){
     unsubscribeTasks = onSnapshot(tasksCol(lista.id), snap => {
       data.tasks = [];
       snap.forEach(d => data.tasks.push(d.data()));
+      data.tasks.sort((a,b) => (a.orden??999999) - (b.orden??999999));
       listasDataCache[lista.id] = { tasks:[...data.tasks], personas:[...data.personas] };
       filtersLoaded = true;
       render();
@@ -1785,6 +1786,7 @@ window.addEventListener('focus', function(){
 });
 
 // Exponer funciones al scope global (necesario por type="module")
+window.render = render; // expuesto explícitamente para oninput="render()" en HTML
 const _fns = [
   signIn, signOut, openModal, openModalById, openModalConGrupo, closeModal,
   saveTask, toggleDone, toggleStar, toggleRow, toggleSel,
@@ -1803,10 +1805,7 @@ const _fns = [
   onGrupoChange, onSubgrupoChange, updateSubgruposList,
   setPrio, toggleFblock, exportarJSON, loadFromFirestore, updateFilterUI, openMobMenu, closeMobMenu, render,
 ];
-_fns.forEach(fn => { try{ if(fn && fn.name) window[fn.name] = fn; }catch(e){} });
-window.render = render;
-window.openMobMenu = openMobMenu;
-window.closeMobMenu = closeMobMenu;
+_fns.forEach(fn => { if(fn && fn.name) window[fn.name] = fn; });
 window.openStatusModal = ()=>document.getElementById('status-overlay').classList.add('open');
 </script>
 </body>
