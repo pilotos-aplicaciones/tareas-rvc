@@ -1,0 +1,19 @@
+{
+  "name": "Tareas RVC",
+  "short_name": "Tareas RVC",
+  "description": "Gestión de tareas RVC",
+  "start_url": "https://pilotos-aplicaciones.github.io/tareas-rvc/tareas_rvc.html",
+  "scope": "https://pilotos-aplicaciones.github.io/tareas-rvc/",
+  "display": "standalone",
+  "background_color": "#F5F3EE",
+  "theme_color": "#CC2929",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://pilotos-aplicaciones.github.io/tareas-rvc/Logo_calado.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
