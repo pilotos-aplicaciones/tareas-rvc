@@ -748,6 +748,8 @@ async function loadFromFirestore(){
     unsubscribeTasks = onSnapshot(tasksCol(lista.id), snap => {
       data.tasks = [];
       snap.forEach(d => data.tasks.push(d.data()));
+      // Ordenar por campo orden si existe
+      data.tasks.sort((a,b) => (a.orden??999999) - (b.orden??999999));
       listasDataCache[lista.id] = { tasks:[...data.tasks], personas:[...data.personas] };
       filtersLoaded = true;
       render();
@@ -1793,12 +1795,10 @@ function initDragAll(){
       // Reordenar data.tasks según el nuevo orden visible
       const taskMap = {};
       data.tasks.forEach(t=>{ taskMap[t.id]=t; });
-      // Obtener tareas que NO están en este contenedor (otras secciones)
       const inContainer = new Set(ids);
       const before = [];
       const reordered = [];
       let insertPoint = -1;
-      // Mantener el orden relativo: insertar las tareas de este contenedor en el lugar de la primera
       data.tasks.forEach((t,i)=>{
         if(inContainer.has(t.id)){
           if(insertPoint===-1) insertPoint = before.length;
@@ -1809,6 +1809,8 @@ function initDragAll(){
       ids.forEach(id=>{ if(taskMap[id]) reordered.push(taskMap[id]); });
       before.splice(insertPoint, 0, ...reordered);
       data.tasks = before;
+      // Asignar campo orden a todas las tareas
+      data.tasks.forEach((t,i)=>{ t.orden = i; });
       saveToDrive();
     }
   );
