@@ -1944,7 +1944,8 @@ const _fns = [
   onGrupoChange, onSubgrupoChange, updateSubgruposList,
   setPrio, toggleFblock, exportarJSON, loadFromFirestore, updateFilterUI,
 ];
-_fns.forEach(fn => { if(fn && fn.name) window[fn.name] = fn; });
+_fns.forEach(fn => { try{ if(fn && fn.name) window[fn.name] = fn; }catch(e){} });
+window.render = render; // expuesto explícitamente para oninput="render()" en HTML
 window.openStatusModal = ()=>document.getElementById('status-overlay').classList.add('open');
 </script>
 </body>
