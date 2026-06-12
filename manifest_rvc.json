@@ -5,18 +5,18 @@
   "start_url": "https://pilotos-aplicaciones.github.io/tareas-rvc/tareas_rvc.html",
   "scope": "https://pilotos-aplicaciones.github.io/tareas-rvc/",
   "display": "standalone",
-  "background_color": "#F5F3EE",
+  "background_color": "#CC2929",
   "theme_color": "#CC2929",
   "orientation": "any",
   "icons": [
     {
-      "src": "https://pilotos-aplicaciones.github.io/tareas-rvc/Logo_calado.png",
+      "src": "icon_192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "https://pilotos-aplicaciones.github.io/tareas-rvc/Logo_calado.png",
+      "src": "icon_512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
