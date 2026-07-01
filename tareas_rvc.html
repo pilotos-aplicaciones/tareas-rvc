@@ -1702,6 +1702,58 @@ function exportarJSON(){
 
 // ── EXPORTAR / IMPORTAR EXCEL ─────────────────────────────────
 const EXCEL_COLUMNS = ['codigo','usuario','lista','titulo','grupo','subgrupo','responsable','inicio','limite','prioridad','estado','origen','notas','starred'];
+// Columnas que contienen fechas (para exportarlas como fecha real y no como texto)
+const EXCEL_DATE_COLS = ['inicio','limite'];
+
+// Convierte 'YYYY-MM-DD' (string interno de la app) a un objeto Date en hora LOCAL,
+// para que SheetJS lo escriba como fecha real de Excel (no como texto).
+function fechaISOaDateLocal(iso){
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||'').trim());
+  if(!m) return '';
+  return new Date(Number(m[1]), Number(m[2])-1, Number(m[3]));
+}
+
+// Convierte lo que venga de una celda de Excel (Date nativo, número de serie o texto)
+// de vuelta a 'YYYY-MM-DD', que es el formato que usa el resto de la app.
+function fechaExcelAISO(valor){
+  if(valor===undefined || valor===null || valor==='') return '';
+  // Caso 1: celda de fecha real leída con cellDates:true -> objeto Date
+  if(valor instanceof Date && !isNaN(valor)){
+    const y=valor.getFullYear(), mo=String(valor.getMonth()+1).padStart(2,'0'), d=String(valor.getDate()).padStart(2,'0');
+    return `${y}-${mo}-${d}`;
+  }
+  const s = String(valor).trim();
+  if(!s) return '';
+  // Caso 2: ya viene en formato ISO (YYYY-MM-DD...) -> se deja igual
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})/.exec(s);
+  if(m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  // Caso 3: formato DD/MM/YYYY o DD-MM-YYYY (típico si alguien lo escribió a mano en Excel)
+  m = /^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/.exec(s);
+  if(m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  // Caso 4 (respaldo): número de serie de Excel sin convertir (por si llega algún caso sin cellDates)
+  if(/^\d+(\.\d+)?$/.test(s)){
+    const serial = Number(s);
+    // Excel: día 0 = 1899-12-30 (incluye el bug del año bisiesto 1900)
+    const base = new Date(Date.UTC(1899,11,30));
+    const dt = new Date(base.getTime() + Math.round(serial)*86400000);
+    const y=dt.getUTCFullYear(), mo=String(dt.getUTCMonth()+1).padStart(2,'0'), d=String(dt.getUTCDate()).padStart(2,'0');
+    return `${y}-${mo}-${d}`;
+  }
+  return s; // no reconocido: se deja tal cual para no perder el dato
+}
+
+// Aplica formato de fecha visible (dd-mm-aaaa) a las celdas de fecha ya escritas en la hoja
+function aplicarFormatoFechas(ws, columnas, filas){
+  columnas.forEach((col, colIdx)=>{
+    if(!EXCEL_DATE_COLS.includes(col)) return;
+    const colLetra = XLSX.utils.encode_col(colIdx);
+    for(let r=0;r<filas.length;r++){
+      const addr = `${colLetra}${r+2}`; // fila 1 es cabecera
+      const cell = ws[addr];
+      if(cell && cell.t==='d'){ cell.z = 'dd-mm-yyyy'; }
+    }
+  });
+}
 
 // Cache del nombre de usuario leído de plataforma_usuarios
 let _nombreUsuarioCache = null;
@@ -1730,15 +1782,16 @@ async function exportarExcel(){
     grupo: t.grupo||'',
     subgrupo: t.subgrupo||'',
     responsable: t.responsable||'',
-    inicio: t.inicio||'',
-    limite: t.limite||'',
+    inicio: fechaISOaDateLocal(t.inicio),
+    limite: fechaISOaDateLocal(t.limite),
     prioridad: t.prioridad||'',
     estado: t.estado||'',
     origen: t.origen||'',
     notas: t.notas||'',
     starred: t.starred?'Sí':'No'
   }));
-  const ws = XLSX.utils.json_to_sheet(filas, { header: EXCEL_COLUMNS });
+  const ws = XLSX.utils.json_to_sheet(filas, { header: EXCEL_COLUMNS, cellDates: true });
+  aplicarFormatoFechas(ws, EXCEL_COLUMNS, filas);
   // Anchos de columna razonables
   ws['!cols'] = [{wch:24},{wch:18},{wch:14},{wch:34},{wch:16},{wch:16},{wch:14},{wch:11},{wch:11},{wch:9},{wch:13},{wch:24},{wch:30},{wch:8}];
   const wb = XLSX.utils.book_new();
@@ -1764,8 +1817,8 @@ async function exportarSeleccionConSubtareas(){
       grupo: t.grupo||'',
       subgrupo: t.subgrupo||'',
       responsable: t.responsable||'',
-      inicio: t.inicio||'',
-      limite: t.limite||'',
+      inicio: fechaISOaDateLocal(t.inicio),
+      limite: fechaISOaDateLocal(t.limite),
       prioridad: t.prioridad||'',
       estado: t.estado||'',
       origen: t.origen||'',
@@ -1777,12 +1830,15 @@ async function exportarSeleccionConSubtareas(){
       filas.push({ ...base, subtarea:'', subtarea_estado:'', subtarea_fecha:'' });
     }else{
       subs.forEach(s=>{
-        filas.push({ ...base, subtarea: s.texto||'', subtarea_estado: s.done?'Completada':'Pendiente', subtarea_fecha: s.fecha||'' });
+        filas.push({ ...base, subtarea: s.texto||'', subtarea_estado: s.done?'Completada':'Pendiente', subtarea_fecha: fechaISOaDateLocal(s.fecha) });
       });
     }
   });
   const columnas = [...EXCEL_COLUMNS,'subtarea','subtarea_estado','subtarea_fecha'];
-  const ws = XLSX.utils.json_to_sheet(filas, { header: columnas });
+  EXCEL_DATE_COLS.push('subtarea_fecha');
+  const ws = XLSX.utils.json_to_sheet(filas, { header: columnas, cellDates: true });
+  aplicarFormatoFechas(ws, columnas, filas);
+  EXCEL_DATE_COLS.pop();
   ws['!cols'] = [{wch:24},{wch:18},{wch:14},{wch:34},{wch:16},{wch:16},{wch:14},{wch:11},{wch:11},{wch:9},{wch:13},{wch:24},{wch:30},{wch:8},{wch:34},{wch:13},{wch:13}];
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, 'Tareas');
@@ -1817,7 +1873,7 @@ async function procesarArchivoExcel(e){
 async function leerArchivoExcel(file){
   try{
     const buf = await file.arrayBuffer();
-    const wb = XLSX.read(buf, {type:'array'});
+    const wb = XLSX.read(buf, {type:'array', cellDates:true});
     const ws = wb.Sheets[wb.SheetNames[0]];
     const filas = XLSX.utils.sheet_to_json(ws, {defval:''});
     if(filas.length===0){ showToast('El archivo está vacío'); return; }
@@ -1933,8 +1989,8 @@ async function ejecutarImportacion(validas){
         tarea.grupo = String(f.grupo||'').trim()||null;
         tarea.subgrupo = String(f.subgrupo||'').trim()||null;
         tarea.responsable = String(f.responsable||'').trim()||null;
-        tarea.inicio = String(f.inicio||'').trim()||null;
-        tarea.limite = String(f.limite||'').trim()||null;
+        tarea.inicio = fechaExcelAISO(f.inicio)||null;
+        tarea.limite = fechaExcelAISO(f.limite)||null;
         tarea.prioridad = String(f.prioridad||'').trim()||'Media';
         tarea.estado = String(f.estado||'').trim()||'Activa';
         tarea.origen = String(f.origen||'').trim()||null;
